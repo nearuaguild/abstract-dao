@@ -1,15 +1,22 @@
 use std::str::FromStr;
 
 use ethers_core::{
-    types::Eip1559TransactionRequest,
+    types::{Eip1559TransactionRequest, NameOrAddress, H160, U64},
     utils::{
         keccak256,
         rlp::{Decodable, Rlp},
     },
 };
 // Find all our documentation at https://docs.near.org
-use near_sdk::serde_json::json;
-use near_sdk::{env, log, near, AccountId, Gas, NearToken, Promise};
+use near_sdk::{
+    env::{self},
+    json_types::U128,
+    log, near, AccountId, Gas, NearToken, Promise,
+};
+use near_sdk::{
+    serde::{Deserialize, Serialize},
+    serde_json::json,
+};
 
 // Define the contract structure
 #[near(contract_state)]
@@ -24,6 +31,19 @@ impl Default for Contract {
             greeting: "Hello".to_string(),
         }
     }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde", rename_all = "snake_case")]
+pub struct EthereumPayload {
+    pub chain_id: u64,
+    pub to: Vec<u8>,
+    pub data: Option<Vec<u8>>,
+    pub value: Option<U128>,
+    pub nonce: u128,
+    pub max_fee_per_gas: U128,
+    pub max_priority_fee_per_gas: U128,
+    pub gas: Option<U128>,
 }
 
 // Implement the contract structure
@@ -50,15 +70,20 @@ impl Contract {
         };
 
         log!("tx receiver: {:?}", tx.to);
+        log!(
+            "Requesting signature to {:?} contract with nonce {:?} and attached {:?} wETH",
+            tx.to,
+            tx.nonce,
+            tx.value
+        );
 
         let mut vec = vec![u8::from(2)];
         vec.extend(tx.rlp().to_vec());
         log!("parsed tx: [{}] {:?}", vec.len(), vec);
 
-        let mut payload = keccak256(vec);
-        payload.reverse();
+        let payload = keccak256(vec);
 
-        log!("reverted payload: [{}] {:?}", payload.len(), payload);
+        log!("payload: [{}] {:?}", payload.len(), payload);
 
         let args = json!({
             "request": {
@@ -69,7 +94,53 @@ impl Contract {
         })
         .to_string()
         .into_bytes();
-        Promise::new(AccountId::from_str("v1.signer-prod.testnet").unwrap()).function_call(
+        Promise::new(AccountId::from_str("v1.signer-dev.testnet").unwrap()).function_call(
+            "sign".to_owned(),
+            args,
+            NearToken::from_yoctonear(100000000000000000000000),
+            Gas::from_tgas(290),
+        )
+    }
+
+    pub fn get_signature(&self, payload: EthereumPayload, derivation_path: String) -> Promise {
+        log!("Started!");
+        let tx = Eip1559TransactionRequest::new()
+            .chain_id(U64::from(payload.chain_id))
+            .to(NameOrAddress::Address(H160::from_slice(
+                payload.to.as_slice(),
+            )))
+            .nonce(payload.nonce)
+            .value(payload.value.unwrap_or(U128(0)).0)
+            .data(payload.data.unwrap_or(Vec::new()))
+            .gas(payload.gas.unwrap_or(U128(21_000)).0)
+            .max_fee_per_gas(payload.max_fee_per_gas.0)
+            .max_priority_fee_per_gas(payload.max_priority_fee_per_gas.0);
+
+        log!(
+            "Requesting signature to {:?} contract with nonce {:?} and attached {:?} wETH",
+            tx.to,
+            tx.nonce,
+            tx.value
+        );
+
+        let mut vec = vec![u8::from(2)];
+        vec.extend(tx.rlp().to_vec());
+        log!("parsed tx: [{}] {:?}", vec.len(), vec);
+
+        let payload = keccak256(vec);
+        log!("payload: [{}] {:?}", payload.len(), payload);
+
+        let args = json!({
+            "request": {
+                "payload": payload,
+                "path": derivation_path,
+                "key_version": 0
+            }
+        })
+        .to_string()
+        .into_bytes();
+
+        Promise::new(AccountId::from_str("v1.signer-dev.testnet").unwrap()).function_call(
             "sign".to_owned(),
             args,
             NearToken::from_yoctonear(1),
