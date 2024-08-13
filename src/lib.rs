@@ -58,6 +58,7 @@ impl Contract {
     pub fn new(signer_account_id: AccountId) -> Self {
         Self {
             last_request_id: 0,
+            // TODO: use StorageKey enum
             requests: LookupMap::new(b"r"),
             signer_account_id: signer_account_id.clone(),
         }
@@ -84,6 +85,7 @@ impl Contract {
 
         let storage_used_before = env::storage_usage();
 
+        // TODO: move request creation in some internal function
         let current_request_id = self.last_request_id;
         self.last_request_id += 1;
 
@@ -116,6 +118,7 @@ impl Contract {
             )
         );
 
+        // TODO: move refund fn to helpers
         let refund = env::attached_deposit()
             .checked_sub(storage_deposit)
             .unwrap();
@@ -144,6 +147,7 @@ impl Contract {
 
         get_request_executor(&request).expect("ERR_FORBIDDEN");
 
+        // TODO: move generating tx payload for signing to helpers
         let base_tx: Eip1559TransactionRequest = request.payload.clone().into();
         let tx = other_payload.include_into_base_tx(base_tx);
 
