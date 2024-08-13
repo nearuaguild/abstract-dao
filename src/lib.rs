@@ -187,25 +187,198 @@ impl Contract {
     }
 }
 
-/*
- * The rest of this file holds the inline tests for the code above
- * Learn more about Rust tests: https://doc.rust-lang.org/book/ch11-01-writing-tests.html
- */
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::str::FromStr;
 
-    #[test]
-    fn get_default_greeting() {
-        let contract = Contract::default();
-        // this test did not call set_greeting so should return the default "Hello" greeting
-        assert_eq!(contract.get_greeting(), "Hello");
+    use super::*;
+    use near_sdk::{json_types::U128, test_utils::VMContextBuilder, testing_env};
+    // use primitives::{BaseEip1559TransactionPayload, InputRequest, OtherEip1559TransactionPayload};
+
+    fn current() -> AccountId {
+        AccountId::from_str("current").unwrap()
+    }
+
+    fn user1() -> AccountId {
+        AccountId::from_str("user1").unwrap()
+    }
+
+    fn user2() -> AccountId {
+        AccountId::from_str("user2").unwrap()
+    }
+
+    fn signer() -> AccountId {
+        AccountId::from_str("signer").unwrap()
+    }
+
+    fn setup() -> (Contract, VMContextBuilder) {
+        let mut context = VMContextBuilder::new();
+        let contract = Contract::new(signer());
+
+        context.current_account_id(current());
+        context.account_balance(NearToken::from_near(1));
+        context.attached_deposit(NearToken::from_yoctonear(0));
+        context.predecessor_account_id(user1());
+        context.block_timestamp(0);
+        context.prepaid_gas(Gas::from_tgas(300));
+
+        testing_env!(context.build());
+
+        (contract, context)
+    }
+
+    fn input_request() -> InputRequest {
+        InputRequest {
+            allowed_executors: vec![Executor::Account {
+                account_id: user1(),
+            }],
+            derivation_seed_number: 0,
+            base_eip1559_payload: BaseEip1559TransactionPayload {
+                to: "0x0000000000000000000000000000000000000000".to_string(),
+                data: None,
+                value: None,
+                nonce: 0,
+            },
+        }
+    }
+
+    fn other_payload() -> OtherEip1559TransactionPayload {
+        OtherEip1559TransactionPayload {
+            chain_id: 1,
+            gas: Some(U128(42_000)),
+            max_fee_per_gas: U128(120_000),
+            max_priority_fee_per_gas: U128(120_000),
+        }
     }
 
     #[test]
-    fn set_then_get_greeting() {
-        let mut contract = Contract::default();
-        contract.set_greeting("howdy".to_string());
-        assert_eq!(contract.get_greeting(), "howdy");
+    fn test_setup_succeeds() {
+        setup();
+    }
+
+    #[test]
+    fn test_set_signer_account_id() {
+        let (mut contract, mut context) = setup();
+
+        assert_eq!(contract.get_signer_account_id(), signer());
+
+        context.predecessor_account_id(current());
+        testing_env!(context.build());
+
+        contract.set_signer_account_id(user2());
+
+        assert_eq!(contract.get_signer_account_id(), user2());
+    }
+
+    #[should_panic = "ERR_FORBIDDEN_ONLY_OWNER"]
+    #[test]
+    fn test_set_signer_account_id_panics_on_wrong_predecessor() {
+        let (mut contract, _) = setup();
+
+        contract.set_signer_account_id(user2());
+    }
+
+    #[test]
+    fn test_register_signature_request() {
+        let (mut contract, _) = setup();
+
+        let input_request = input_request();
+        let request_id_1 = contract.register_signature_request(input_request.clone());
+        let request_id_2 = contract.register_signature_request(input_request.clone());
+
+        assert_ne!(request_id_1, request_id_2);
+    }
+
+    #[should_panic]
+    #[test]
+    fn test_register_signature_request_panics_on_empty_executors() {
+        let (mut contract, _) = setup();
+
+        let mut input_request = input_request();
+        input_request.allowed_executors = vec![];
+
+        contract.register_signature_request(input_request.clone());
+    }
+
+    #[should_panic]
+    #[test]
+    fn test_register_signature_request_panics_on_too_many_executors() {
+        let (mut contract, _) = setup();
+
+        let mut input_request = input_request();
+        input_request.allowed_executors = vec![
+            Executor::Account {
+                account_id: user1()
+            };
+            32
+        ];
+
+        contract.register_signature_request(input_request.clone());
+    }
+
+    #[test]
+    fn test_get_signature() {
+        let (mut contract, _) = setup();
+
+        let input_request = input_request();
+        let request_id = contract.register_signature_request(input_request.clone());
+
+        let other_payload = other_payload();
+        contract.get_signature(request_id, other_payload);
+    }
+
+    #[should_panic = "ERR_NOT_FOUND"]
+    #[test]
+    fn test_get_signature_panics_on_unexisted_request() {
+        let (mut contract, _) = setup();
+
+        let other_payload = other_payload();
+        contract.get_signature(100, other_payload);
+    }
+
+    #[should_panic = "ERR_FORBIDDEN"]
+    #[test]
+    fn test_get_signature_panics_on_non_allowed_executor() {
+        let (mut contract, mut context) = setup();
+
+        let input_request = input_request();
+        let request_id = contract.register_signature_request(input_request.clone());
+
+        context.predecessor_account_id(user2());
+        testing_env!(context.build());
+
+        let other_payload = other_payload();
+        contract.get_signature(request_id, other_payload);
+    }
+
+    #[should_panic = "ERR_TIME_IS_UP"]
+    #[test]
+    fn test_get_signature_panics_on_deadline() {
+        let (mut contract, mut context) = setup();
+
+        let input_request = input_request();
+        let request_id = contract.register_signature_request(input_request.clone());
+
+        context.block_timestamp(15 * ONE_MINUTE_NANOS + 1);
+        testing_env!(context.build());
+
+        let other_payload = other_payload();
+        contract.get_signature(request_id, other_payload);
+    }
+
+    #[should_panic = "ERR_INSUFFICIENT_GAS"]
+    #[test]
+    fn test_get_signature_panics_on_insufficient_gas() {
+        let (mut contract, mut context) = setup();
+
+        let input_request = input_request();
+        let request_id = contract.register_signature_request(input_request.clone());
+
+        // 260TGas - 1Gas
+        context.prepaid_gas(Gas::from_tgas(260).checked_sub(Gas::from_gas(1)).unwrap());
+        testing_env!(context.build());
+
+        let other_payload = other_payload();
+        contract.get_signature(request_id, other_payload);
     }
 }

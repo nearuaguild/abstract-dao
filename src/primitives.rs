@@ -105,3 +105,81 @@ impl Into<Eip1559TransactionRequest> for OtherEip1559TransactionPayload {
         Eip1559TransactionRequest::new().chain_id(5)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use ethers_core::types::Eip1559TransactionRequest;
+    use near_sdk::json_types::U128;
+
+    use crate::BaseEip1559TransactionPayload;
+
+    use super::OtherEip1559TransactionPayload;
+
+    fn base_payload() -> BaseEip1559TransactionPayload {
+        BaseEip1559TransactionPayload {
+            to: "0x0000000000000000000000000000000000000000".to_string(),
+            nonce: 0,
+            value: Some(U128(1)),
+            data: Some("0x2386f26fc10000".to_string()),
+        }
+    }
+
+    fn other_payload() -> OtherEip1559TransactionPayload {
+        OtherEip1559TransactionPayload {
+            chain_id: 1111,
+            gas: Some(U128(42_000)),
+            max_fee_per_gas: U128(120_000),
+            max_priority_fee_per_gas: U128(120_000),
+        }
+    }
+
+    #[test]
+    fn test_into_eip1559_tx() {
+        let payload = base_payload();
+        let _: Eip1559TransactionRequest = payload.into();
+    }
+
+    #[should_panic = "ERR_CANT_PARSE_ADDRESS"]
+    #[test]
+    fn test_into_eip1559_tx_panics_on_empty_address() {
+        let mut payload = base_payload();
+        payload.to = "".to_string();
+
+        let _: Eip1559TransactionRequest = payload.into();
+    }
+
+    #[should_panic = "ERR_CANT_PARSE_ADDRESS"]
+    #[test]
+    fn test_into_eip1559_tx_panics_on_wrong_address() {
+        let mut payload = base_payload();
+        payload.to = "4141ajkl412pp41fakfa".to_string();
+
+        let _: Eip1559TransactionRequest = payload.into();
+    }
+
+    #[should_panic = "ERR_CANT_PARSE_DATA"]
+    #[test]
+    fn test_into_eip1559_tx_panics_on_wrong_data() {
+        let mut payload = base_payload();
+        payload.data = Some("4141ajkl412pp41fakfa".to_string());
+
+        let _: Eip1559TransactionRequest = payload.into();
+    }
+
+    #[test]
+    fn test_building_eip1559_tx() {
+        let base_payload = base_payload();
+        let base_tx: Eip1559TransactionRequest = base_payload.into();
+
+        let other_payload = other_payload();
+        let tx = other_payload.include_into_base_tx(base_tx);
+
+        assert_eq!(
+            tx.nonce.clone(),
+            Some(ethers_core::types::U256([0, 0, 0, 0]))
+        );
+        assert_eq!(tx.chain_id, Some(ethers_core::types::U64([1111])));
+    }
+
+    // TODO: tests for OtherEip1559TransactionPayload
+}
