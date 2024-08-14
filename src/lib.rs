@@ -1,43 +1,22 @@
+mod constants;
+mod helpers;
 mod primitives;
 
-use ethers_core::{types::Eip1559TransactionRequest, utils::keccak256};
-
-use near_sdk::serde_json::json;
-use near_sdk::{
-    env::{self, block_timestamp},
-    log, near, require, AccountId, Duration, Gas, PanicOnDefault, Promise,
+use constants::{MIN_GAS_FOR_GET_SIGNATURE, ONE_MINUTE_NANOS};
+use helpers::{
+    assert_deposit, assert_gas, calculate_deposit_for_used_storage, create_derivation_path,
+    create_sign_promise, create_tx_and_args_for_sign, refund_unused_deposit,
 };
-use near_sdk::{store::LookupMap, NearToken};
-use primitives::*;
-
-const ONE_MINUTE_NANOS: Duration = 60_000_000_000;
-const MIN_GAS_FOR_MPC_SIGN: Gas = Gas::from_tgas(250);
-const GAS_FOR_BASIC_OP: Gas = Gas::from_tgas(5);
-const GAS_FOR_PROMISE: Gas = Gas::from_tgas(5);
-
-fn generate_derivation_path(predecessor_id: AccountId, seed_number: u32) -> String {
-    format!("{}-{}", predecessor_id, seed_number)
-}
-
-fn get_request_executor(request: &Request) -> Option<Executor> {
-    let predecessor_id = env::predecessor_account_id();
-
-    request
-        .allowed_executors
-        .iter()
-        .find(|&executor| match executor {
-            Executor::Account { account_id } => predecessor_id == *account_id,
-        })
-        .cloned()
-}
-
-fn min_required_gas() -> Gas {
-    MIN_GAS_FOR_MPC_SIGN
-        .checked_add(GAS_FOR_BASIC_OP)
-        .unwrap()
-        .checked_add(GAS_FOR_PROMISE)
-        .unwrap()
-}
+use near_sdk::{
+    assert_self,
+    env::{self, block_timestamp},
+    near, require,
+    store::LookupMap,
+    AccountId, NearToken, PanicOnDefault, Promise,
+};
+use primitives::{
+    Actor, InputRequest, OtherEip1559TransactionPayload, Request, RequestId, StorageKey,
+};
 
 // Define the contract structure
 #[derive(PanicOnDefault)]
@@ -51,24 +30,21 @@ pub struct Contract {
     pub signer_account_id: AccountId,
 }
 
-// Implement the contract structure
+// Public API
 #[near]
 impl Contract {
     #[init]
     pub fn new(signer_account_id: AccountId) -> Self {
         Self {
             last_request_id: 0,
-            // TODO: use StorageKey enum
-            requests: LookupMap::new(b"r"),
+            requests: LookupMap::new(StorageKey::AllRequests),
             signer_account_id: signer_account_id.clone(),
         }
     }
 
+    #[private]
     pub fn set_signer_account_id(&mut self, account_id: AccountId) {
-        require!(
-            env::predecessor_account_id() == env::current_account_id(),
-            "ERR_FORBIDDEN_ONLY_OWNER"
-        );
+        assert_self();
 
         self.signer_account_id = account_id;
     }
@@ -79,54 +55,20 @@ impl Contract {
 
     #[payable]
     pub fn register_signature_request(&mut self, request: InputRequest) -> RequestId {
-        if let Some(validation_error) = request.validate() {
-            panic!("{}", validation_error);
-        }
-
         let storage_used_before = env::storage_usage();
-
-        // TODO: move request creation in some internal function
-        let current_request_id = self.last_request_id;
-        self.last_request_id += 1;
-
-        let internal_request = Request {
-            id: current_request_id,
-            allowed_executors: request.allowed_executors,
-            payload: request.base_eip1559_payload,
-            derivation_path: generate_derivation_path(
-                env::predecessor_account_id(),
-                request.derivation_seed_number,
-            ),
-            key_version: 0,
-            deadline: block_timestamp() + 15 * ONE_MINUTE_NANOS,
-        };
-        self.requests.insert(internal_request.id, internal_request);
-
+        let new_request_id = self.add_request(request);
         let storage_used_after = env::storage_usage();
 
-        let used_storage = (storage_used_after - storage_used_before) as u128;
+        let used_storage = storage_used_after
+            .checked_sub(storage_used_before)
+            .expect("ERR_UNEXPECTED");
 
-        let storage_deposit = env::storage_byte_cost()
-            .checked_mul(used_storage)
-            .expect("ERR_STORAGE_DEPOSIT_CALC");
+        let storage_deposit = calculate_deposit_for_used_storage(used_storage);
 
-        require!(
-            env::attached_deposit() >= storage_deposit,
-            format!(
-                "Deposited amount must be bigger than {} yocto",
-                storage_deposit
-            )
-        );
+        assert_deposit(storage_deposit);
+        refund_unused_deposit(storage_deposit);
 
-        // TODO: move refund fn to helpers
-        let refund = env::attached_deposit()
-            .checked_sub(storage_deposit)
-            .unwrap();
-        if refund > NearToken::from_yoctonear(1) {
-            Promise::new(env::predecessor_account_id()).transfer(refund);
-        }
-
-        current_request_id
+        new_request_id
     }
 
     #[payable]
@@ -135,59 +77,53 @@ impl Contract {
         request_id: RequestId,
         other_payload: OtherEip1559TransactionPayload,
     ) -> Promise {
+        assert_deposit(NearToken::from_yoctonear(1));
+        assert_gas(MIN_GAS_FOR_GET_SIGNATURE);
+
+        let request = self.get_request_or_panic(request_id);
+
         require!(
-            env::prepaid_gas() >= min_required_gas(),
-            "ERR_INSUFFICIENT_GAS"
+            !request.is_time_exceeded(env::block_timestamp()),
+            "ERR_TIME_IS_UP"
         );
 
+        let predecessor = Actor::from(env::predecessor_account_id());
+        require!(request.is_actor_allowed(predecessor), "ERR_FORBIDDEN");
+
+        let (_, args) = create_tx_and_args_for_sign(request.clone(), other_payload);
+        create_sign_promise(self.signer_account_id.clone(), args)
+    }
+}
+
+/// Internal helpers API
+impl Contract {
+    fn add_request(&mut self, input_request: InputRequest) -> RequestId {
+        if let Some(validation_error) = input_request.validate() {
+            panic!("{}", validation_error);
+        };
+
+        let current_request_id = self.last_request_id;
+        self.last_request_id += 1;
+
+        let internal_request = Request {
+            id: current_request_id,
+            allowed_actors: input_request.allowed_actors,
+            payload: input_request.base_eip1559_payload,
+            derivation_path: create_derivation_path(input_request.derivation_seed_number),
+            key_version: 0,
+            deadline: block_timestamp() + 15 * ONE_MINUTE_NANOS,
+        };
+        self.requests.insert(internal_request.id, internal_request);
+        // this is required as LookupMap doesn't write state immediately
+        // Bug4 -> https://docs.near.org/build/smart-contracts/anatomy/collections#error-prone-patterns
+        self.requests.flush();
+
+        current_request_id
+    }
+
+    fn get_request_or_panic(&self, request_id: RequestId) -> &Request {
         // TODO: use errors from Enum
-        let request = self.requests.get(&request_id).expect("ERR_NOT_FOUND");
-
-        require!(env::block_timestamp() <= request.deadline, "ERR_TIME_IS_UP");
-
-        get_request_executor(&request).expect("ERR_FORBIDDEN");
-
-        // TODO: move generating tx payload for signing to helpers
-        let base_tx: Eip1559TransactionRequest = request.payload.clone().into();
-        let tx = other_payload.include_into_base_tx(base_tx);
-
-        log!(
-            "Requesting signature to {:?} contract with nonce {:?} and attached {:?} wETH",
-            tx.to.clone().unwrap(),
-            tx.nonce.unwrap(),
-            tx.value.unwrap()
-        );
-
-        let mut vec = vec![u8::from(2)];
-        vec.extend(tx.rlp().to_vec());
-        log!("parsed tx: [{}] {:?}", vec.len(), vec);
-
-        let payload = keccak256(vec);
-        log!("payload: [{}] {:?}", payload.len(), payload);
-
-        let args = json!({
-            "request": {
-                "payload": payload,
-                "path": request.derivation_path,
-                "key_version": request.key_version
-            }
-        })
-        .to_string()
-        .into_bytes();
-
-        let gas_for_sign_promise = env::prepaid_gas()
-            .checked_sub(env::used_gas())
-            .unwrap()
-            // some Gas is gonna be used to create Promise
-            .checked_sub(GAS_FOR_PROMISE)
-            .unwrap();
-
-        Promise::new(self.signer_account_id.clone()).function_call(
-            "sign".to_owned(),
-            args,
-            env::attached_deposit(),
-            gas_for_sign_promise,
-        )
+        self.requests.get(&request_id).expect("ERR_NOT_FOUND")
     }
 }
 
@@ -196,8 +132,8 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
-    use near_sdk::{json_types::U128, test_utils::VMContextBuilder, testing_env};
-    // use primitives::{BaseEip1559TransactionPayload, InputRequest, OtherEip1559TransactionPayload};
+    use near_sdk::{json_types::U128, test_utils::VMContextBuilder, testing_env, Gas, NearToken};
+    use primitives::{BaseEip1559TransactionPayload, OtherEip1559TransactionPayload};
 
     fn current() -> AccountId {
         AccountId::from_str("current").unwrap()
@@ -221,7 +157,7 @@ mod tests {
 
         context.current_account_id(current());
         context.account_balance(NearToken::from_near(1));
-        context.attached_deposit(NearToken::from_yoctonear(0));
+        context.attached_deposit(NearToken::from_millinear(10));
         context.predecessor_account_id(user1());
         context.block_timestamp(0);
         context.prepaid_gas(Gas::from_tgas(300));
@@ -233,7 +169,7 @@ mod tests {
 
     fn input_request() -> InputRequest {
         InputRequest {
-            allowed_executors: vec![Executor::Account {
+            allowed_actors: vec![Actor::Account {
                 account_id: user1(),
             }],
             derivation_seed_number: 0,
@@ -241,7 +177,7 @@ mod tests {
                 to: "0x0000000000000000000000000000000000000000".to_string(),
                 data: None,
                 value: None,
-                nonce: 0,
+                nonce: U128(0),
             },
         }
     }
@@ -274,7 +210,7 @@ mod tests {
         assert_eq!(contract.get_signer_account_id(), user2());
     }
 
-    #[should_panic = "ERR_FORBIDDEN_ONLY_OWNER"]
+    #[should_panic]
     #[test]
     fn test_set_signer_account_id_panics_on_wrong_predecessor() {
         let (mut contract, _) = setup();
@@ -287,6 +223,14 @@ mod tests {
         let (mut contract, _) = setup();
 
         let input_request = input_request();
+        contract.register_signature_request(input_request.clone());
+    }
+
+    #[test]
+    fn test_register_signature_request_uses_different_ids() {
+        let (mut contract, _) = setup();
+
+        let input_request = input_request();
         let request_id_1 = contract.register_signature_request(input_request.clone());
         let request_id_2 = contract.register_signature_request(input_request.clone());
 
@@ -295,28 +239,40 @@ mod tests {
 
     #[should_panic]
     #[test]
-    fn test_register_signature_request_panics_on_empty_executors() {
+    fn test_register_signature_request_panics_on_empty_actors() {
         let (mut contract, _) = setup();
 
         let mut input_request = input_request();
-        input_request.allowed_executors = vec![];
+        input_request.allowed_actors = vec![];
 
         contract.register_signature_request(input_request.clone());
     }
 
     #[should_panic]
     #[test]
-    fn test_register_signature_request_panics_on_too_many_executors() {
+    fn test_register_signature_request_panics_on_too_many_actors() {
         let (mut contract, _) = setup();
 
         let mut input_request = input_request();
-        input_request.allowed_executors = vec![
-            Executor::Account {
+        input_request.allowed_actors = vec![
+            Actor::Account {
                 account_id: user1()
             };
             32
         ];
 
+        contract.register_signature_request(input_request.clone());
+    }
+
+    #[should_panic]
+    #[test]
+    fn test_register_signature_request_panics_on_small_deposit() {
+        let (mut contract, mut context) = setup();
+
+        context.attached_deposit(NearToken::from_yoctonear(100));
+        testing_env!(context.build());
+
+        let input_request = input_request();
         contract.register_signature_request(input_request.clone());
     }
 
@@ -342,7 +298,7 @@ mod tests {
 
     #[should_panic = "ERR_FORBIDDEN"]
     #[test]
-    fn test_get_signature_panics_on_non_allowed_executor() {
+    fn test_get_signature_panics_on_non_allowed_actor() {
         let (mut contract, mut context) = setup();
 
         let input_request = input_request();
