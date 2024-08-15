@@ -4,17 +4,14 @@ on:
   push:
     branches: [develop]
 
-env:
-  NEAR_ACCOUNT_ID: dev.abstract-dao.testnet
-
 jobs:
   test:
     uses: ./.github/workflows/test.yml
 
   deploy-dev:
-    name: Deploy contract to ${{ env.NEAR_ACCOUNT_ID }}
+    name: Deploy contract to ${{ vars.NEAR_ACCOUNT_ID }}
     runs-on: ubuntu-latest
-    environment: "${{ env.NEAR_ACCOUNT_ID }}"
+    environment: dev.abstract-dao.testnet
 
     steps:
       - name: Checkout repository
@@ -25,7 +22,7 @@ jobs:
 
       - name: Deploy to Dev account on testnet
         run: |
-          cargo near deploy "${{ env.NEAR_ACCOUNT_ID }}" \
+          cargo near deploy "${{ vars.NEAR_ACCOUNT_ID }}" \
             without-init-call \
             network-config "${{ vars.NEAR_NETWORK }}" \
             sign-with-plaintext-private-key \
