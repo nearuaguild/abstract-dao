@@ -2,7 +2,7 @@ name: Deploy to Dev account on testnet
 
 on:
   push:
-    - develop
+    branches: [develop]
 
 env:
   NEAR_ACCOUNT_ID: dev.abstract-dao.testnet
