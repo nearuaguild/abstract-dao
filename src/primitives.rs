@@ -3,6 +3,7 @@ use std::str::FromStr;
 use ethers_core::types::{Bytes, Eip1559TransactionRequest, NameOrAddress, H160};
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
+use near_sdk::schemars::JsonSchema;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{AccountId, BorshStorageKey, Timestamp};
 
@@ -14,8 +15,9 @@ pub enum StorageKey {
 
 pub type RequestId = u64;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(crate = "near_sdk::serde")]
+#[schemars(crate = "near_sdk::schemars")]
 pub struct InputRequest {
     pub allowed_actors: Vec<Actor>,
     pub base_eip1559_payload: BaseEip1559TransactionPayload,
@@ -61,9 +63,12 @@ impl Request {
 }
 
 /// Represents entity that may have access to get_signature fn
-#[derive(Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Debug, BorshDeserialize, BorshSerialize, Clone, PartialEq, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(crate = "near_sdk::serde", untagged)]
 #[borsh(crate = "near_sdk::borsh")]
+#[schemars(crate = "near_sdk::schemars")]
 pub enum Actor {
     Account { account_id: AccountId },
     // TODO: bring AccessKey { public_key: PublicKey }
@@ -77,9 +82,10 @@ impl From<AccountId> for Actor {
     }
 }
 
-#[derive(Serialize, Deserialize, BorshSerialize, BorshDeserialize, Clone)]
+#[derive(Serialize, Deserialize, BorshSerialize, BorshDeserialize, Clone, JsonSchema)]
 #[serde(crate = "near_sdk::serde", rename_all = "snake_case")]
 #[borsh(crate = "near_sdk::borsh")]
+#[schemars(crate = "near_sdk::schemars")]
 pub struct BaseEip1559TransactionPayload {
     pub to: String,
     pub data: Option<String>,
@@ -102,8 +108,9 @@ impl From<BaseEip1559TransactionPayload> for Eip1559TransactionRequest {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "near_sdk::serde", rename_all = "snake_case")]
+#[schemars(crate = "near_sdk::schemars")]
 pub struct OtherEip1559TransactionPayload {
     pub chain_id: u64,
     pub max_fee_per_gas: U128,
