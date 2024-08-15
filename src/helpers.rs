@@ -46,7 +46,7 @@ fn create_eip1559_tx(
     let base_tx: Eip1559TransactionRequest = base_payload.into();
     let other_tx: Eip1559TransactionRequest = other_payload.into();
 
-    let tx = Eip1559TransactionRequest {
+    Eip1559TransactionRequest {
         // Base Tx
         to: base_tx.to,
         data: base_tx.data,
@@ -60,9 +60,7 @@ fn create_eip1559_tx(
         // Unused
         from: None,
         access_list: AccessList::default(),
-    };
-
-    tx
+    }
 }
 
 fn build_tx_payload(tx: Eip1559TransactionRequest) -> [u8; 32] {

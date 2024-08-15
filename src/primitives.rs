@@ -56,8 +56,7 @@ impl Request {
     pub fn is_actor_allowed(&self, actor: Actor) -> bool {
         self.allowed_actors
             .iter()
-            .find(|&allowed_actor| *allowed_actor == actor)
-            .is_some()
+            .any(|allowed_actor| *allowed_actor == actor)
     }
 }
 
@@ -90,19 +89,16 @@ pub struct BaseEip1559TransactionPayload {
     pub nonce: U128,
 }
 
-impl Into<Eip1559TransactionRequest> for BaseEip1559TransactionPayload {
-    fn into(self) -> Eip1559TransactionRequest {
-        let to = NameOrAddress::Address(H160::from_str(&self.to).expect("ERR_CANT_PARSE_ADDRESS"));
-        let nonce = self.nonce.0;
-        let value = self.value.unwrap_or(U128(0)).0;
-        let data = Bytes::from_str(self.data.unwrap_or("0x".to_string()).as_str())
+impl From<BaseEip1559TransactionPayload> for Eip1559TransactionRequest {
+    fn from(payload: BaseEip1559TransactionPayload) -> Self {
+        let to =
+            NameOrAddress::Address(H160::from_str(&payload.to).expect("ERR_CANT_PARSE_ADDRESS"));
+        let nonce = payload.nonce.0;
+        let value = payload.value.unwrap_or(U128(0)).0;
+        let data = Bytes::from_str(payload.data.unwrap_or("0x".to_string()).as_str())
             .expect("ERR_CANT_PARSE_DATA");
 
-        Eip1559TransactionRequest::new()
-            .to(to)
-            .nonce(nonce)
-            .value(value)
-            .data(data)
+        Self::new().to(to).nonce(nonce).value(value).data(data)
     }
 }
 
@@ -115,14 +111,14 @@ pub struct OtherEip1559TransactionPayload {
     pub gas: Option<U128>,
 }
 
-impl Into<Eip1559TransactionRequest> for OtherEip1559TransactionPayload {
-    fn into(self) -> Eip1559TransactionRequest {
-        let chain_id = self.chain_id;
-        let gas = self.gas.unwrap_or(U128(21_000)).0;
-        let max_fee_per_gas = self.max_fee_per_gas.0;
-        let max_priority_fee_per_gas = self.max_priority_fee_per_gas.0;
+impl From<OtherEip1559TransactionPayload> for Eip1559TransactionRequest {
+    fn from(payload: OtherEip1559TransactionPayload) -> Self {
+        let chain_id = payload.chain_id;
+        let gas = payload.gas.unwrap_or(U128(21_000)).0;
+        let max_fee_per_gas = payload.max_fee_per_gas.0;
+        let max_priority_fee_per_gas = payload.max_priority_fee_per_gas.0;
 
-        Eip1559TransactionRequest::new()
+        Self::new()
             .chain_id(chain_id)
             .gas(gas)
             .max_fee_per_gas(max_fee_per_gas)
