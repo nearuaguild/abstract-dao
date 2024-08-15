@@ -12,9 +12,9 @@ jobs:
     uses: ./.github/workflows/test.yml
 
   deploy-dev:
-    name: Deploy contract to $NEAR_ACCOUNT_ID
+    name: Deploy contract to ${{ env.NEAR_ACCOUNT_ID }}
     runs-on: ubuntu-latest
-    environment: $NEAR_ACCOUNT_ID
+    environment: "${{ env.NEAR_ACCOUNT_ID }}"
 
     steps:
       - name: Checkout repository
