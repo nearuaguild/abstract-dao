@@ -1,4 +1,4 @@
-name: Deploy to Dev account on testnet
+name: Deploy contract on Dev account
 
 on:
   push:
@@ -9,8 +9,9 @@ jobs:
     uses: ./.github/workflows/test.yml
 
   deploy-dev:
-    name: Deploy contract to ${{ vars.NEAR_ACCOUNT_ID }}
+    name: Deploy contract
     runs-on: ubuntu-latest
+    needs: [test]
     environment: dev.abstract-dao.testnet
 
     steps:
@@ -20,7 +21,7 @@ jobs:
       - name: Install cargo-near CLI
         run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.6.4/cargo-near-installer.sh | sh
 
-      - name: Deploy to Dev account on testnet
+      - name: Deploy contract to ${{ vars.NEAR_ACCOUNT_ID }}
         run: |
           cargo near deploy "${{ vars.NEAR_ACCOUNT_ID }}" \
             without-init-call \
