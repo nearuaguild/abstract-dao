@@ -28,7 +28,7 @@ impl InputRequest {
             return Some("At least one actor must be provided");
         }
 
-        if self.allowed_actors.len() > 30 {
+        if self.allowed_actors.len() > 10 {
             return Some("ERR_TOO_MANY_ACTORS");
         }
 

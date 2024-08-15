@@ -258,7 +258,7 @@ mod tests {
             Actor::Account {
                 account_id: user1()
             };
-            32
+            11
         ];
 
         contract.register_signature_request(input_request.clone());
