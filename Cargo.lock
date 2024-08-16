@@ -1309,7 +1309,7 @@ dependencies = [
 
 [[package]]
 name = "near_abstract_dao"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ethers-core",
  "getrandom",
