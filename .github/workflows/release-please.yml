@@ -1,0 +1,25 @@
+on:
+  workflow_dispatch:
+  pull_request:
+    types:
+      - closed
+
+name: Release Please
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true && contains(github.event.pull_request.body, 'I have created a release *beep* *boop*') && github.event.pull_request.user.login == 'denbite')
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        name: Run release-please command
+        with:
+          # this assumes that you have created a personal access token
+          # (PAT) and configured it as a GitHub action secret named
+          token: ${{ secrets.REPOSITORY_PERSONAL_ACCESS_TOKEN }}
+          target-branch: main
+          config-file: .release-please/config.json
+          manifest-file: .release-please/.manifest.json
+          skip-github-release: false
+          skip-github-pull-request: false

@@ -1,0 +1,22 @@
+name: Pull Request Test
+
+on:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check Formatting
+        run: cargo fmt --check
+
+      - name: Run cargo clippy
+        run: |
+          rustup component add clippy
+          cargo clippy --all-features --workspace --tests -- --warn clippy::all --warn clippy::nursery
+
+      - name: Run cargo test
+        run: cargo test

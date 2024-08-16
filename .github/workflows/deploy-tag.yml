@@ -1,0 +1,38 @@
+name: Deploy contract of exact Version
+run-name: Deploy contract `${{ inputs.tag }}` version to `${{ inputs.environment }}` by @${{ github.actor }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy to"
+        type: environment
+        required: true
+      tag:
+        description: "The tag version of release (v0.1.0)"
+        required: true
+        type: string
+
+jobs:
+  deploy-tag:
+    name: Deploy ${{ inputs.tag }} to ${{ inputs.environment }}
+    environment: ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository to ${{ inputs.tag }}
+        uses: actions/checkout@v4
+        with:
+          ref: ref/tags/${{ inputs.tag }}
+
+      - name: Install cargo-near CLI
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.6.1/cargo-near-installer.sh | sh
+
+      - name: Deploy contract to ${{ vars.NEAR_ACCOUNT_ID }}
+        run: |
+          cargo near deploy "${{ vars.NEAR_ACCOUNT_ID }}" \
+            without-init-call \
+            network-config "${{ vars.NEAR_NETWORK }}" \
+            sign-with-plaintext-private-key \
+              --signer-public-key "${{ vars.NEAR_ACCOUNT_PUBLIC_KEY }}" \
+              --signer-private-key "${{ secrets.NEAR_ACCOUNT_PRIVATE_KEY }}" \
+            send

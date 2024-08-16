@@ -2,16 +2,12 @@ name: Deploy contract on Dev account
 
 on:
   push:
-    branches: [develop]
+    branches: [main]
 
 jobs:
-  test:
-    uses: ./.github/workflows/test.yml
-
   deploy-dev:
     name: Deploy contract
     runs-on: ubuntu-latest
-    needs: [test]
     environment: dev.abstract-dao.testnet
 
     steps:
