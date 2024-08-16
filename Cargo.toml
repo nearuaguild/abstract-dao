@@ -1,5 +1,5 @@
 [package]
-description = "cargo-near-new-project-description"
+description = "Abstract DAO brings Chain Abstraction for multiple chains"
 edition = "2021"
 name = "near_abstract_dao"
 version = "0.1.0"
