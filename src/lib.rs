@@ -108,7 +108,7 @@ impl Contract {
         let internal_request = Request {
             id: current_request_id,
             allowed_actors: input_request.allowed_actors,
-            payload: input_request.base_eip1559_payload,
+            payload: input_request.transaction_payload.into(),
             derivation_path: create_derivation_path(input_request.derivation_seed_number),
             key_version: input_request.key_version.unwrap_or(0),
             deadline: block_timestamp() + 15 * ONE_MINUTE_NANOS,
@@ -132,8 +132,12 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
+    use ethers_core::{
+        abi::{Function, Param, ParamType, StateMutability, Token},
+        types::U256,
+    };
     use near_sdk::{json_types::U128, test_utils::VMContextBuilder, testing_env, Gas, NearToken};
-    use primitives::{BaseEip1559TransactionPayload, OtherEip1559TransactionPayload};
+    use primitives::{FunctionData, InputTransactionPayload, OtherEip1559TransactionPayload};
 
     fn current() -> AccountId {
         AccountId::from_str("current").unwrap()
@@ -173,12 +177,13 @@ mod tests {
                 account_id: user1(),
             }],
             derivation_seed_number: 0,
-            base_eip1559_payload: BaseEip1559TransactionPayload {
+            transaction_payload: InputTransactionPayload {
                 to: "0x0000000000000000000000000000000000000000".to_string(),
-                data: None,
+                function_data: None,
                 value: None,
                 nonce: U128(0),
             },
+            key_version: None,
         }
     }
 
@@ -235,6 +240,66 @@ mod tests {
         let request_id_2 = contract.register_signature_request(input_request.clone());
 
         assert_ne!(request_id_1, request_id_2);
+    }
+
+    #[test]
+    fn test_register_signature_request_with_function_data() {
+        let (mut contract, _) = setup();
+
+        let mut input_request = input_request();
+        input_request.transaction_payload.function_data = Some(FunctionData {
+            function_abi: Function {
+                name: "set".to_string(),
+                inputs: vec![Param {
+                    name: "_num".to_string(),
+                    kind: ParamType::Uint(256),
+                    internal_type: Some("uint256".to_string()),
+                }],
+                outputs: vec![],
+                constant: None,
+                state_mutability: StateMutability::NonPayable,
+            },
+            arguments: vec![Token::Uint(U256([2000, 0, 0, 0]))],
+        });
+
+        contract.register_signature_request(input_request.clone());
+    }
+
+    #[should_panic]
+    #[test]
+    fn test_register_signature_request_panics_on_invalid_function_arguments() {
+        let (mut contract, _) = setup();
+
+        let mut input_request = input_request();
+        input_request.transaction_payload.function_data = Some(FunctionData {
+            function_abi: Function {
+                name: "set".to_string(),
+                inputs: vec![Param {
+                    name: "_num".to_string(),
+                    kind: ParamType::Uint(256),
+                    internal_type: Some("uint256".to_string()),
+                }],
+                outputs: vec![],
+                constant: None,
+                state_mutability: StateMutability::NonPayable,
+            },
+            arguments: vec![],
+        });
+
+        // must panic since no arguments are provided
+        contract.register_signature_request(input_request.clone());
+    }
+
+    #[should_panic]
+    #[test]
+    fn test_register_signature_request_panics_on_wrong_address() {
+        let (mut contract, _) = setup();
+
+        let mut input_request = input_request();
+        input_request.transaction_payload.to = "0xbajdo3i1o21o214".to_string();
+
+        // must panic since address is invalid
+        contract.register_signature_request(input_request.clone());
     }
 
     #[should_panic]

@@ -1,9 +1,11 @@
 use std::str::FromStr;
 
+use ethers_contract::encode_function_data;
+use ethers_core::abi::{Function, Token, Tokenize};
 use ethers_core::types::{Bytes, Eip1559TransactionRequest, NameOrAddress, H160};
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
-use near_sdk::{AccountId, BorshStorageKey, Timestamp};
+use near_sdk::{env, AccountId, BorshStorageKey, Timestamp};
 
 #[derive(BorshSerialize, BorshDeserialize, BorshStorageKey)]
 #[borsh(crate = "near_sdk::borsh")]
@@ -14,10 +16,57 @@ pub enum StorageKey {
 pub type RequestId = u64;
 
 #[derive(Clone)]
-#[near_sdk::near(serializers = [borsh, json])]
+#[near_sdk::near(serializers = [json])]
+pub struct FunctionData {
+    pub function_abi: Function,
+    pub arguments: Vec<Token>,
+}
+
+impl Tokenize for FunctionData {
+    fn into_tokens(self) -> Vec<Token> {
+        self.arguments
+    }
+}
+
+impl FunctionData {
+    pub fn encode(&self) -> Bytes {
+        encode_function_data(&self.function_abi, self.clone()).unwrap_or_else(|error| {
+            env::log_str(error.to_string().as_str());
+            env::panic_str("Function arguments don't match provided ABI");
+        })
+    }
+}
+
+#[derive(Clone)]
+#[near_sdk::near(serializers = [json])]
+pub struct InputTransactionPayload {
+    pub function_data: Option<FunctionData>,
+    pub to: String,
+    pub value: Option<U128>,
+    pub nonce: U128,
+}
+
+impl From<InputTransactionPayload> for BaseEip1559TransactionPayload {
+    fn from(input: InputTransactionPayload) -> Self {
+        let valid_address = H160::from_str(&input.to).expect("ERR_CANT_PARSE_ADDRESS");
+
+        Self {
+            to: Bytes::from(valid_address.0).to_string(),
+            nonce: input.nonce,
+            value: input.value,
+            data: match input.function_data {
+                Some(data) => Some(data.encode().to_string()),
+                None => None,
+            },
+        }
+    }
+}
+
+#[derive(Clone)]
+#[near_sdk::near(serializers = [json])]
 pub struct InputRequest {
     pub allowed_actors: Vec<Actor>,
-    pub base_eip1559_payload: BaseEip1559TransactionPayload,
+    pub transaction_payload: InputTransactionPayload,
     pub derivation_seed_number: u32,
     pub key_version: Option<u32>,
 }
@@ -125,7 +174,10 @@ impl From<OtherEip1559TransactionPayload> for Eip1559TransactionRequest {
 
 #[cfg(test)]
 mod tests {
-    use ethers_core::types::Eip1559TransactionRequest;
+    use ethers_core::{
+        abi::{Param, ParamType, StateMutability},
+        types::{Eip1559TransactionRequest, U256},
+    };
     use near_sdk::json_types::U128;
 
     use super::*;
@@ -145,6 +197,23 @@ mod tests {
             gas: Some(U128(42_000)),
             max_fee_per_gas: U128(120_000),
             max_priority_fee_per_gas: U128(120_000),
+        }
+    }
+
+    fn function_data(arguments: Vec<Token>) -> FunctionData {
+        FunctionData {
+            function_abi: Function {
+                name: "set".to_string(),
+                inputs: vec![Param {
+                    name: "_num".to_string(),
+                    kind: ParamType::Uint(256),
+                    internal_type: Some("uint256".to_string()),
+                }],
+                outputs: vec![],
+                constant: None,
+                state_mutability: StateMutability::NonPayable,
+            },
+            arguments: arguments,
         }
     }
 
@@ -185,5 +254,58 @@ mod tests {
     fn test_other_payload_into_eip1559_tx() {
         let payload = other_payload();
         let _: Eip1559TransactionRequest = payload.into();
+    }
+
+    #[test]
+    fn test_input_transaction_payload_into_base_payload() {
+        let input = InputTransactionPayload {
+            to: "0x0000000000000000000000000000000000000000".to_string(),
+            nonce: U128(0),
+            value: Some(U128(1000)),
+            function_data: Some(function_data(vec![Token::Uint(U256([2000, 0, 0, 0]))])),
+        };
+
+        let base_payload: BaseEip1559TransactionPayload = input.into();
+
+        assert_eq!(
+            base_payload.to,
+            "0x0000000000000000000000000000000000000000".to_string()
+        );
+        assert_eq!(base_payload.nonce, U128(0));
+        assert_eq!(base_payload.value, Some(U128(1000)));
+        assert_eq!(
+            base_payload.data,
+            Some(
+                "0x60fe47b100000000000000000000000000000000000000000000000000000000000007d0"
+                    .to_string()
+            )
+        );
+    }
+
+    #[should_panic = "ERR_CANT_PARSE_ADDRESS"]
+    #[test]
+    fn test_input_transaction_payload_into_base_payload_panics_on_wrong_address() {
+        let input = InputTransactionPayload {
+            to: "0x0000000000000000000000000000000000000000?".to_string(),
+            nonce: U128(0),
+            value: Some(U128(1000)),
+            function_data: None,
+        };
+
+        let _: BaseEip1559TransactionPayload = input.into();
+    }
+
+    #[should_panic = "Function arguments don't match provided ABI"]
+    #[test]
+    fn test_input_transaction_payload_into_base_payload_panics_on_invalid_function_arguments() {
+        let input = InputTransactionPayload {
+            to: "0x0000000000000000000000000000000000000000".to_string(),
+            nonce: U128(0),
+            value: Some(U128(1000)),
+            function_data: Some(function_data(vec![])),
+        };
+
+        // must panic since one argument is expected, but wasn't provided
+        let _: BaseEip1559TransactionPayload = input.into();
     }
 }
