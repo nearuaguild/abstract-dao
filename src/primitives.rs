@@ -19,6 +19,7 @@ pub struct InputRequest {
     pub allowed_actors: Vec<Actor>,
     pub base_eip1559_payload: BaseEip1559TransactionPayload,
     pub derivation_seed_number: u32,
+    pub key_version: Option<u32>,
 }
 
 impl InputRequest {

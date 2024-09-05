@@ -110,7 +110,7 @@ impl Contract {
             allowed_actors: input_request.allowed_actors,
             payload: input_request.base_eip1559_payload,
             derivation_path: create_derivation_path(input_request.derivation_seed_number),
-            key_version: 0,
+            key_version: input_request.key_version.unwrap_or(0),
             deadline: block_timestamp() + 15 * ONE_MINUTE_NANOS,
         };
         self.requests.insert(internal_request.id, internal_request);
