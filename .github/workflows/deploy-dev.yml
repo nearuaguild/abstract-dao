@@ -25,4 +25,5 @@ jobs:
             sign-with-plaintext-private-key \
               --signer-public-key "${{ vars.NEAR_ACCOUNT_PUBLIC_KEY }}" \
               --signer-private-key "${{ secrets.NEAR_ACCOUNT_PRIVATE_KEY }}" \
-            send
+            send \
+            --no-abi
