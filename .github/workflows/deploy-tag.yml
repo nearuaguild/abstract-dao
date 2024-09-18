@@ -23,6 +23,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ref/tags/${{ inputs.tag }}
+          fetch-tags: true
+          fetch-depth: 0
 
       - name: Install cargo-near CLI
         run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.6.1/cargo-near-installer.sh | sh
