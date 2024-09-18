@@ -22,7 +22,7 @@ jobs:
       - name: Checkout repository to ${{ inputs.tag }}
         uses: actions/checkout@v4
         with:
-          ref: ref/tags/${{ inputs.tag }}
+          ref: ${{ inputs.tag }}
           fetch-tags: true
           fetch-depth: 0
 
