@@ -29,7 +29,7 @@ jobs:
 
       - name: Deploy contract to ${{ vars.NEAR_ACCOUNT_ID }}
         run: |
-          cargo near deploy "${{ vars.NEAR_ACCOUNT_ID }}" \
+          cargo near deploy --no-abi "${{ vars.NEAR_ACCOUNT_ID }}" \
             without-init-call \
             network-config "${{ vars.NEAR_NETWORK }}" \
             sign-with-plaintext-private-key \
