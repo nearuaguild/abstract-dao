@@ -27,30 +27,30 @@ pub struct Contract {
     /// Map of signing requests
     pub requests: LookupMap<RequestId, Request>,
     /// MPC Account ID
-    pub signer_account_id: AccountId,
+    pub mpc_contract_id: AccountId,
 }
 
 // Public API
 #[near]
 impl Contract {
     #[init]
-    pub fn new(signer_account_id: AccountId) -> Self {
+    pub fn new(mpc_contract_id: AccountId) -> Self {
         Self {
             last_request_id: 0,
             requests: LookupMap::new(StorageKey::AllRequests),
-            signer_account_id: signer_account_id.clone(),
+            mpc_contract_id: mpc_contract_id.clone(),
         }
     }
 
     #[private]
-    pub fn set_signer_account_id(&mut self, account_id: AccountId) {
+    pub fn set_mpc_contract_id(&mut self, account_id: AccountId) {
         assert_self();
 
-        self.signer_account_id = account_id;
+        self.mpc_contract_id = account_id;
     }
 
-    pub fn get_signer_account_id(&self) -> AccountId {
-        self.signer_account_id.clone()
+    pub fn get_mpc_contract_id(&self) -> AccountId {
+        self.mpc_contract_id.clone()
     }
 
     #[payable]
@@ -91,7 +91,7 @@ impl Contract {
         require!(request.is_actor_allowed(predecessor), "ERR_FORBIDDEN");
 
         let (_, args) = create_tx_and_args_for_sign(request.clone(), other_payload);
-        create_sign_promise(self.signer_account_id.clone(), args)
+        create_sign_promise(self.mpc_contract_id.clone(), args)
     }
 }
 
@@ -202,25 +202,25 @@ mod tests {
     }
 
     #[test]
-    fn test_set_signer_account_id() {
+    fn test_set_mpc_contract_id() {
         let (mut contract, mut context) = setup();
 
-        assert_eq!(contract.get_signer_account_id(), signer());
+        assert_eq!(contract.get_mpc_contract_id(), signer());
 
         context.predecessor_account_id(current());
         testing_env!(context.build());
 
-        contract.set_signer_account_id(user2());
+        contract.set_mpc_contract_id(user2());
 
-        assert_eq!(contract.get_signer_account_id(), user2());
+        assert_eq!(contract.get_mpc_contract_id(), user2());
     }
 
     #[should_panic]
     #[test]
-    fn test_set_signer_account_id_panics_on_wrong_predecessor() {
+    fn test_set_mpc_contract_id_panics_on_wrong_predecessor() {
         let (mut contract, _) = setup();
 
-        contract.set_signer_account_id(user2());
+        contract.set_mpc_contract_id(user2());
     }
 
     #[test]
