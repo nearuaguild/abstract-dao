@@ -22,8 +22,8 @@ use primitives::{
 #[derive(PanicOnDefault)]
 #[near(contract_state)]
 pub struct Contract {
-    /// Last available id for the requests.
-    pub last_request_id: RequestId,
+    /// Next available id for the requests.
+    pub next_request_id: RequestId,
     /// Map of signing requests
     pub requests: LookupMap<RequestId, Request>,
     /// MPC Account ID
@@ -36,7 +36,7 @@ impl Contract {
     #[init]
     pub fn new(mpc_contract_id: AccountId) -> Self {
         Self {
-            last_request_id: 0,
+            next_request_id: 0,
             requests: LookupMap::new(StorageKey::AllRequests),
             mpc_contract_id: mpc_contract_id.clone(),
         }
@@ -102,8 +102,8 @@ impl Contract {
             panic!("{}", validation_error);
         };
 
-        let current_request_id = self.last_request_id;
-        self.last_request_id += 1;
+        let current_request_id = self.next_request_id;
+        self.next_request_id += 1;
 
         let internal_request = Request {
             id: current_request_id,
