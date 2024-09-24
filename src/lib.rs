@@ -41,11 +41,6 @@ impl Contract {
         }
     }
 
-    #[private]
-    pub fn set_mpc_contract_id(&mut self, account_id: AccountId) {
-        self.mpc_contract_id = account_id;
-    }
-
     pub fn get_mpc_contract_id(&self) -> AccountId {
         self.mpc_contract_id.clone()
     }
@@ -196,28 +191,6 @@ mod tests {
     #[test]
     fn test_setup_succeeds() {
         setup();
-    }
-
-    #[test]
-    fn test_set_mpc_contract_id() {
-        let (mut contract, mut context) = setup();
-
-        assert_eq!(contract.get_mpc_contract_id(), signer());
-
-        context.predecessor_account_id(current());
-        testing_env!(context.build());
-
-        contract.set_mpc_contract_id(user2());
-
-        assert_eq!(contract.get_mpc_contract_id(), user2());
-    }
-
-    #[should_panic]
-    #[test]
-    fn test_set_mpc_contract_id_panics_on_wrong_predecessor() {
-        let (mut contract, _) = setup();
-
-        contract.set_mpc_contract_id(user2());
     }
 
     #[test]
