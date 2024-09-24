@@ -8,7 +8,6 @@ use helpers::{
     create_sign_promise, create_tx_and_args_for_sign, refund_unused_deposit,
 };
 use near_sdk::{
-    assert_self,
     env::{self, block_timestamp},
     near, require,
     store::LookupMap,
@@ -44,8 +43,6 @@ impl Contract {
 
     #[private]
     pub fn set_mpc_contract_id(&mut self, account_id: AccountId) {
-        assert_self();
-
         self.mpc_contract_id = account_id;
     }
 
