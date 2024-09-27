@@ -30,10 +30,8 @@ impl Tokenize for FunctionData {
 
 impl FunctionData {
     pub fn encode(&self) -> Bytes {
-        encode_function_data(&self.function_abi, self.clone()).unwrap_or_else(|error| {
-            env::log_str(error.to_string().as_str());
-            env::panic_str("Function arguments don't match provided ABI");
-        })
+        encode_function_data(&self.function_abi, self.clone())
+            .expect("Function arguments don't match provided ABI")
     }
 }
 
