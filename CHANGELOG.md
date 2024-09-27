@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.4.0](https://github.com/nearuaguild/abstract-dao/compare/v0.3.0...v0.4.0) (2024-09-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* rename field that counts request identifiers
+* rename field that stores MPC contract id
+
+### Miscellaneous Chores
+
+* release 0.4.0 ([fc982f2](https://github.com/nearuaguild/abstract-dao/commit/fc982f2b38874ee7d4a6f5563c9b77f0862e7861))
+* remove ability for owner to set another MPC contract ID ([ee21945](https://github.com/nearuaguild/abstract-dao/commit/ee219457ddf5e6e1d0788b4e4306cd310c969d64))
+
+
+### Bug Fixes
+
+* rename field that counts request identifiers ([ab33d9c](https://github.com/nearuaguild/abstract-dao/commit/ab33d9c2ba609cd067c3fc412865d49d1cb428ce))
+* rename field that stores MPC contract id ([b44eba2](https://github.com/nearuaguild/abstract-dao/commit/b44eba217f6525a7d70ab483206f96e92afd9706))
+
 ## 0.3.0 (2024-09-18)
 
 
