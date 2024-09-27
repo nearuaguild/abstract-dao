@@ -20,6 +20,7 @@ jobs:
       - name: Rustc version
         run: rustc -V
 
+      # mandatory for e2e tests
       - name: Build release version of contract
         run: cargo near build --no-abi --no-docker
 
