@@ -1,11 +1,12 @@
-name: Pull Request Test
+name: Pull Request Checks
 
 on:
   pull_request:
 
 jobs:
-  checks:
+  tests:
     runs-on: ubuntu-latest
+    name: Check Formatting & Tests
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -13,10 +14,27 @@ jobs:
       - name: Check Formatting
         run: cargo fmt --check
 
+      - name: Install cargo-near CLI
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.8.1/cargo-near-installer.sh | sh
+
+      - name: Rustc version
+        run: rustc -V
+
+      # mandatory for e2e tests
+      - name: Build release version of contract
+        run: cargo near build --no-abi --no-docker
+
+      - name: Run cargo test
+        run: cargo test
+
+  clippy:
+    runs-on: ubuntu-latest
+    name: Runs Cargo Clippy
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Run cargo clippy
         run: |
           rustup component add clippy
           cargo clippy --all-features --workspace --tests -- --warn clippy::all --warn clippy::nursery
-
-      - name: Run cargo test
-        run: cargo test
