@@ -132,13 +132,7 @@ pub async fn create_signature_request(user: &Account, contract_id: &AccountId) -
         .deposit(NearToken::from_millinear(50)) // 0.05 NEAR
         .args_json(json!({
             "request": {
-                "allowed_actors": [
-                    {
-                        "Account": {
-                            "account_id": user.id().to_string()
-                        }
-                    }
-                ],
+                "allowed_account_id": user.id().to_string(),
                 "derivation_seed_number": 0,
                 "transaction_payload": {
                     "to": "0xe2a01146FFfC8432497ae49A7a6cBa5B9Abd71A3",

@@ -13,9 +13,7 @@ use near_sdk::{
     store::LookupMap,
     AccountId, NearToken, PanicOnDefault, Promise,
 };
-use primitives::{
-    Actor, InputRequest, OtherEip1559TransactionPayload, Request, RequestId, StorageKey,
-};
+use primitives::{InputRequest, OtherEip1559TransactionPayload, Request, RequestId, StorageKey};
 
 // Define the contract structure
 #[derive(PanicOnDefault)]
@@ -79,8 +77,10 @@ impl Contract {
             "ERR_TIME_IS_UP"
         );
 
-        let predecessor = Actor::from(env::predecessor_account_id());
-        require!(request.is_actor_allowed(predecessor), "ERR_FORBIDDEN");
+        require!(
+            request.is_account_allowed(env::predecessor_account_id()),
+            "ERR_FORBIDDEN"
+        );
 
         let (_, args) = create_tx_and_args_for_sign(request.clone(), other_payload);
         create_sign_promise(self.mpc_contract_id.clone(), args)
@@ -90,16 +90,12 @@ impl Contract {
 /// Internal helpers API
 impl Contract {
     fn add_request(&mut self, input_request: InputRequest) -> RequestId {
-        if let Some(validation_error) = input_request.validate() {
-            panic!("{}", validation_error);
-        };
-
         let current_request_id = self.next_request_id;
         self.next_request_id += 1;
 
         let internal_request = Request {
             id: current_request_id,
-            allowed_actors: input_request.allowed_actors,
+            allowed_account_id: input_request.allowed_account_id,
             payload: input_request.transaction_payload.into(),
             derivation_path: create_derivation_path(input_request.derivation_seed_number),
             key_version: input_request.key_version.unwrap_or(0),
@@ -165,9 +161,7 @@ mod tests {
 
     fn input_request() -> InputRequest {
         InputRequest {
-            allowed_actors: vec![Actor::Account {
-                account_id: user1(),
-            }],
+            allowed_account_id: user1(),
             derivation_seed_number: 0,
             transaction_payload: InputTransactionPayload {
                 to: "0x0000000000000000000000000000000000000000".to_string(),
@@ -269,33 +263,6 @@ mod tests {
         input_request.transaction_payload.to = "0xbajdo3i1o21o214".to_string();
 
         // must panic since address is invalid
-        contract.register_signature_request(input_request.clone());
-    }
-
-    #[should_panic]
-    #[test]
-    fn test_register_signature_request_panics_on_empty_actors() {
-        let (mut contract, _) = setup();
-
-        let mut input_request = input_request();
-        input_request.allowed_actors = vec![];
-
-        contract.register_signature_request(input_request.clone());
-    }
-
-    #[should_panic]
-    #[test]
-    fn test_register_signature_request_panics_on_too_many_actors() {
-        let (mut contract, _) = setup();
-
-        let mut input_request = input_request();
-        input_request.allowed_actors = vec![
-            Actor::Account {
-                account_id: user1()
-            };
-            11
-        ];
-
         contract.register_signature_request(input_request.clone());
     }
 

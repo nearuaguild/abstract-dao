@@ -5,7 +5,7 @@ use ethers_core::abi::{Function, Token, Tokenize};
 use ethers_core::types::{Bytes, Eip1559TransactionRequest, NameOrAddress, H160};
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
-use near_sdk::{env, AccountId, BorshStorageKey, Timestamp};
+use near_sdk::{AccountId, BorshStorageKey, Timestamp};
 
 #[derive(BorshSerialize, BorshDeserialize, BorshStorageKey)]
 #[borsh(crate = "near_sdk::borsh")]
@@ -63,24 +63,10 @@ impl From<InputTransactionPayload> for BaseEip1559TransactionPayload {
 #[derive(Clone)]
 #[near_sdk::near(serializers = [json])]
 pub struct InputRequest {
-    pub allowed_actors: Vec<Actor>,
+    pub allowed_account_id: AccountId,
     pub transaction_payload: InputTransactionPayload,
     pub derivation_seed_number: u32,
     pub key_version: Option<u32>,
-}
-
-impl InputRequest {
-    pub fn validate(&self) -> Option<&str> {
-        if self.allowed_actors.is_empty() {
-            return Some("At least one actor must be provided");
-        }
-
-        if self.allowed_actors.len() > 10 {
-            return Some("ERR_TOO_MANY_ACTORS");
-        }
-
-        None
-    }
 }
 
 /// An internal request wrapped with predecessor of a request
@@ -88,7 +74,7 @@ impl InputRequest {
 #[near_sdk::near(serializers = [borsh, json])]
 pub struct Request {
     pub id: RequestId,
-    pub allowed_actors: Vec<Actor>,
+    pub allowed_account_id: AccountId,
     pub payload: BaseEip1559TransactionPayload,
     pub derivation_path: String,
     pub key_version: u32,
@@ -100,26 +86,8 @@ impl Request {
         now > self.deadline
     }
 
-    pub fn is_actor_allowed(&self, actor: Actor) -> bool {
-        self.allowed_actors
-            .iter()
-            .any(|allowed_actor| *allowed_actor == actor)
-    }
-}
-
-/// Represents entity that may have access to get_signature fn
-#[derive(Clone, PartialEq)]
-#[near_sdk::near(serializers = [borsh, json])]
-pub enum Actor {
-    Account { account_id: AccountId },
-    // TODO: bring AccessKey { public_key: PublicKey }
-}
-
-impl From<AccountId> for Actor {
-    fn from(account: AccountId) -> Self {
-        Self::Account {
-            account_id: account,
-        }
+    pub fn is_account_allowed(&self, account: AccountId) -> bool {
+        self.allowed_account_id == account
     }
 }
 
