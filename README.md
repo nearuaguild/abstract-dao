@@ -1,16 +1,25 @@
-# near_eth_tx
+# Near Multi-Chain DAO Governance Contract
 
-cargo-near-new-project-description
+The smart contract is designed to act as an intermediary between Decentralized Organizations (such as DAOs or Multisig contracts) and a Multi-Party Computation (MPC) contract. Its primary purpose is to streamline the governance process for DAO councils by allowing them to vote on proposals once and automatically generate the necessary signatures for the same payload across multiple Ethereum Virtual Machine (EVM) compatible chains—differing only by the chain ID.
+
+## Environments
+
+Currently, there're 2 environments:
+
+1. Testnet: `abstract-dao.testnet`
+2. Dev (unstable): `dev.abstract-dao.testnet`
 
 ## How to Build Locally?
 
 Install [`cargo-near`](https://github.com/near/cargo-near) and run:
 
 ```bash
-cargo near build
+cargo near build --no-abi --no-docker
 ```
 
 ## How to Test Locally?
+
+The following command runs both unit and integration tests:
 
 ```bash
 cargo test
@@ -22,8 +31,94 @@ Deployment is automated with GitHub Actions CI/CD pipeline.
 To deploy manually, install [`cargo-near`](https://github.com/near/cargo-near) and run:
 
 ```bash
-cargo near deploy <account-id>
+cargo near deploy --no-abi <account-id>
 ```
+
+## How To Use?
+
+1. A proposal is created and submitted to the organization (DAO or multisig) for review.
+
+2. Members cast their votes on the proposal (either approve, or reject)
+
+3. Once approved, the institution turns to the Governance Contract to record their intention to generate a signature for a specific payload and grant permission to some account to execute it
+
+4. For each target EVM-compatible chain, the eligible account interacts with the Governance Contract to construct a signature specific to that chain
+
+## API
+
+To execute a command from the example, install [`near-cli`](https://near.cli.rs)
+
+### `register_signature_request()`
+
+This is one of the main functions of the contract. It records user's intention to generate a signature for a specific payload and grants permission to some account to execute it later
+
+```rs
+pub fn register_signature_request(&mut self, request: InputRequest) -> RequestId
+```
+
+#### Example
+
+```bash
+near contract call-function as-transaction abstract-dao.testnet register_signature_request json-args '{
+    "request": {
+        "allowed_account_id": "<eligible-account-id>",
+        "derivation_seed_number": 0,
+        "transaction_payload": {
+            "to": "0xe2a01146FFfC8432497ae49A7a6cBa5B9Abd71A3",
+            "nonce": "0",
+            "function_data": {
+                "function_abi": {
+                    "inputs": [
+                        {
+                            "internalType": "uint256",
+                            "name": "_num",
+                            "type": "uint256"
+                        }
+                    ],
+                    "name": "set",
+                    "outputs": [],
+                    "stateMutability": "nonpayable",
+                    "type": "function"
+                },
+                "arguments": [
+                    {
+                        "Uint": "A97"
+                    }
+                ]
+            }
+        }
+    }
+}' prepaid-gas '100.0 Tgas' attached-deposit '0.1 NEAR' sign-as <dao-account-id> network-config testnet
+```
+
+- `<eligible-account-id>` is the user who will be allowed to get signature later
+- `<dao-account-id>` is the institution's account for which signature is generated
+- Integer arguments must be base64 encoded
+
+### `get_signature()`
+
+This is one of the main functions of the contract. It validates predecessor's permissions, converts payload into EIP-1559 transaction, and transmits further to MPC Contract where the signature is created
+
+```rs
+pub fn get_signature(&mut self, request_id: RequestId, other_payload: OtherEip1559TransactionPayload) -> Promise
+```
+
+#### Example
+
+```bash
+near contract call-function as-transaction abstract-dao.testnet get_signature json-args '{
+    "request_id": <request-id>,
+    "other_payload": {
+        "chain_id": 11155111,
+        "max_fee_per_gas": "111551114121",
+        "max_priority_fee_per_gas": "294111551111"
+    }
+}' prepaid-gas '300.0 Tgas' attached-deposit '0.05 NEAR' sign-as <eligible-account-id> network-config testnet
+```
+
+- `<request_id>` is returned in response of `register_signature_request()`
+- `<eligible-account-id>` must have permission to run `get_signature()`, otherwise it will throw forbidden error
+- Prepaid gas must be bigger than 250TGas
 
 ## Useful Links
 
