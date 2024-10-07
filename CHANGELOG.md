@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.5.0](https://github.com/nearuaguild/abstract-dao/compare/v0.4.0...v0.5.0) (2024-10-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove `Actor` enum completely & use a single `AccountId` instead of `Vec<Actor>`
+
+### Miscellaneous Chores
+
+* release 0.5.0 ([e3eb3d8](https://github.com/nearuaguild/abstract-dao/commit/e3eb3d8b4b468cc69dbe1250ee4d30f7028790f7))
+
+
+### Documentation
+
+* fill Readme file ([2d9b119](https://github.com/nearuaguild/abstract-dao/commit/2d9b1191c277b74ca57d05badaf74889cc3a6f56))
+* leave comments to describe internal structures purpose ([a09875f](https://github.com/nearuaguild/abstract-dao/commit/a09875f355163d7401d35f82a3a9face8fb3a1da))
+
+
+### Bug Fixes
+
+* use `near_workspaces::compile_project()` to avoid errors due to the missing contract WASM file ([2e8b9a9](https://github.com/nearuaguild/abstract-dao/commit/2e8b9a9362ceb0617a7e371f16f6b909b6608cab))
+
+
+### Code Refactoring
+
+* remove `Actor` enum completely & use a single `AccountId` instead of `Vec&lt;Actor&gt;` ([ff85dca](https://github.com/nearuaguild/abstract-dao/commit/ff85dcaebbc0d95f700bda4a62a2b08bd3cc7eff))
+
 ## [0.4.0](https://github.com/nearuaguild/abstract-dao/compare/v0.3.0...v0.4.0) (2024-09-27)
 
 
