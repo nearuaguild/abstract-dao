@@ -18,7 +18,9 @@ pub type RequestId = u64;
 #[derive(Clone)]
 #[near_sdk::near(serializers = [json])]
 pub struct FunctionData {
+    // Single function ABI that is used for data encoding
     pub function_abi: Function,
+    // Arguments to provide for function from ABI
     pub arguments: Vec<Token>,
 }
 
@@ -38,9 +40,13 @@ impl FunctionData {
 #[derive(Clone)]
 #[near_sdk::near(serializers = [json])]
 pub struct InputTransactionPayload {
+    // Stringified function arguments together with ABI
     pub function_data: Option<FunctionData>,
+    // Receiver address
     pub to: String,
+    // Stringified wei value
     pub value: Option<U128>,
+    // Stringified nonce
     pub nonce: U128,
 }
 
@@ -63,22 +69,35 @@ impl From<InputTransactionPayload> for BaseEip1559TransactionPayload {
 #[derive(Clone)]
 #[near_sdk::near(serializers = [json])]
 pub struct InputRequest {
+    // The account ID that is authorized to call get_signature()
     pub allowed_account_id: AccountId,
+    // Stringified, raw Ethereum transaction payload
     pub transaction_payload: InputTransactionPayload,
+    // An integer that is used to generate derivation_path and distinguish signer accounts
     pub derivation_seed_number: u32,
+    // Key version that is to be sent to MPC Contract
+    // Default is 0
     pub key_version: Option<u32>,
 }
 
-/// An internal request wrapped with predecessor of a request
+/// An internal request wrapped with Eip1559 Transaction Payload
 #[derive(Clone)]
 #[near_sdk::near(serializers = [borsh, json])]
 pub struct Request {
     pub id: RequestId,
+    // The account ID that is authorized to call get_signature()
     pub allowed_account_id: AccountId,
-    pub payload: BaseEip1559TransactionPayload,
-    pub derivation_path: String,
-    pub key_version: u32,
+    // The time limit (in nanoseconds) until get_signature() can be called
     pub deadline: Timestamp,
+    // Part of the transaction payload as defined by EIP-1559
+    // The address is validated to be compatible with Ethereum
+    // The data is validated in accordance with the provided ABI
+    pub payload: BaseEip1559TransactionPayload,
+    // Derivation path that is to be sent to MPC Contract
+    // https://docs.near.org/concepts/abstraction/chain-signatures#derivation-paths-one-account-multiple-chains
+    pub derivation_path: String,
+    // Key version that is to be sent to MPC Contract
+    pub key_version: u32,
 }
 
 impl Request {
