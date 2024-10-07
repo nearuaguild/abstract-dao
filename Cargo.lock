@@ -3336,6 +3336,7 @@ dependencies = [
  "base64 0.22.1",
  "bs58 0.5.1",
  "cargo-near",
+ "cargo_metadata",
  "chrono",
  "fs2",
  "json-patch",

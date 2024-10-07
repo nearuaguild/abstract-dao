@@ -7,8 +7,6 @@ pub const ARBITRUM_CHAIN_ID: u64 = 42161;
 pub const ETHEREUM_CHAIN_ID: u64 = 1;
 
 const MPC_CONTRACT_WASM_FILE_PATH: &str = "tests/res/mpc_contract.wasm";
-const ABSTRACT_DAO_CONTRACT_WASM_FILE_PATH: &str =
-    "target/wasm32-unknown-unknown/release/near_abstract_dao.wasm";
 
 fn get_mpc_request_scalars_for_chain(chain_id: u64) -> (&'static str, &'static str) {
     // epsilon persists the same across chains
@@ -25,12 +23,9 @@ fn get_mpc_request_scalars_for_chain(chain_id: u64) -> (&'static str, &'static s
 }
 
 pub async fn deploy_abstract_dao_contract(root: &Account, mpc_contract_id: &AccountId) -> Contract {
-    let wasm = std::fs::read(ABSTRACT_DAO_CONTRACT_WASM_FILE_PATH).expect(
-        format!(
-            "Couldn't find Wasm file intended for Abstract Dao contract at {ABSTRACT_DAO_CONTRACT_WASM_FILE_PATH}"
-        )
-        .as_str(),
-    );
+    let wasm = near_workspaces::compile_project(".")
+        .await
+        .expect("Failed to compile contract WASM!");
 
     let account = root
         .create_subaccount("contract")
