@@ -99,7 +99,7 @@ impl Contract {
             payload: input_request.transaction_payload.into(),
             derivation_path: create_derivation_path(input_request.derivation_seed_number),
             key_version: input_request.key_version.unwrap_or(0),
-            deadline: block_timestamp() + 15 * ONE_MINUTE_NANOS,
+            deadline: block_timestamp() + 24 * 60 * ONE_MINUTE_NANOS, // in one day
         };
         self.requests.insert(internal_request.id, internal_request);
         // this is required as LookupMap doesn't write state immediately
