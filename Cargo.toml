@@ -2,7 +2,7 @@
 description = "Abstract DAO brings Chain Abstraction for multiple chains"
 edition = "2021"
 name = "near_abstract_dao"
-version = "0.5.0"
+version = "0.6.0"
 # NEP-0330 is automatically implemented for all contracts built with https://github.com/near/cargo-near.
 # Link to the repository will be available via `contract_source_metadata` view-function.
 repository = "https://github.com/nearuaguild/abstract-dao"
