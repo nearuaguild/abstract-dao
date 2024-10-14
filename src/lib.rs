@@ -70,6 +70,7 @@ impl Contract {
             deadline: new_request.deadline,
             derivation_path: new_request.derivation_path,
             mpc_account_id: self.mpc_contract_id.clone(),
+            allowed_account_id: new_request.allowed_account_id,
         }
     }
 

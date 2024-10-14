@@ -164,6 +164,7 @@ pub struct RegisterSignatureReqResponse {
     pub deadline: Timestamp,
     pub derivation_path: String,
     pub mpc_account_id: AccountId,
+    pub allowed_account_id: AccountId,
 }
 
 #[near_sdk::near(serializers = [json])]
