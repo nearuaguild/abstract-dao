@@ -1,11 +1,12 @@
 use ethers_core::types::transaction::eip2930::AccessList;
-use ethers_core::types::Eip1559TransactionRequest;
+use ethers_core::types::{Bytes, Eip1559TransactionRequest};
 use ethers_core::utils::keccak256;
 use near_sdk::serde_json::json;
 use near_sdk::{env, require, AccountId, Gas, NearToken, Promise, StorageUsage};
 
-use crate::constants::GAS_FOR_PROMISE;
+use crate::constants::{GAS_FOR_CALLBACK, GAS_FOR_PROMISE};
 use crate::primitives::{BaseEip1559TransactionPayload, OtherEip1559TransactionPayload, Request};
+use crate::Contract;
 
 pub fn create_derivation_path(seed_number: u32) -> String {
     format!("{}-{}", env::predecessor_account_id(), seed_number)
@@ -63,11 +64,16 @@ fn create_eip1559_tx(
     }
 }
 
-fn build_tx_payload(tx: Eip1559TransactionRequest) -> [u8; 32] {
+pub fn tx_to_vec(tx: Eip1559TransactionRequest) -> Vec<u8> {
     // byte "2" stands for EIP-1559 Type
     let mut vec = vec![2u8];
     vec.extend(tx.rlp().to_vec());
 
+    vec
+}
+
+fn build_tx_payload(tx: Eip1559TransactionRequest) -> [u8; 32] {
+    let vec = tx_to_vec(tx);
     keccak256(vec)
 }
 
@@ -100,9 +106,20 @@ pub fn create_sign_promise(account_id: AccountId, args: Vec<u8>) -> Promise {
         .unwrap()
         // some Gas will be used to create Promise itself
         .checked_sub(GAS_FOR_PROMISE)
+        .unwrap()
+        // some Gas will be allocated for callback
+        .checked_sub(GAS_FOR_CALLBACK)
         .unwrap();
 
     Promise::new(account_id).function_call(function, args, deposit, gas)
+}
+
+pub fn create_on_sign_callback_promise(tx: Eip1559TransactionRequest) -> Promise {
+    let vec = tx_to_vec(tx);
+
+    Contract::ext(env::current_account_id())
+        .with_static_gas(GAS_FOR_CALLBACK)
+        .on_get_signature(Bytes::from(vec.clone()).to_string())
 }
 
 #[cfg(test)]

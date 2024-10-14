@@ -157,6 +157,12 @@ impl From<OtherEip1559TransactionPayload> for Eip1559TransactionRequest {
     }
 }
 
+#[near_sdk::near(serializers = [json])]
+pub struct GetSignatureResponse {
+    pub tx: String,
+    pub signature: near_sdk::serde_json::Value,
+}
+
 #[cfg(test)]
 mod tests {
     use ethers_core::{

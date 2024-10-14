@@ -6,3 +6,4 @@ pub const ONE_MINUTE_NANOS: Duration = 60_000_000_000;
 pub const MIN_GAS_FOR_GET_SIGNATURE: Gas = Gas::from_tgas(260);
 
 pub const GAS_FOR_PROMISE: Gas = Gas::from_tgas(5);
+pub const GAS_FOR_CALLBACK: Gas = Gas::from_tgas(5);

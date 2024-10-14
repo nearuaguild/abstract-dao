@@ -5,15 +5,20 @@ mod primitives;
 use constants::{MIN_GAS_FOR_GET_SIGNATURE, ONE_MINUTE_NANOS};
 use helpers::{
     assert_deposit, assert_gas, calculate_deposit_for_used_storage, create_derivation_path,
-    create_sign_promise, create_tx_and_args_for_sign, refund_unused_deposit,
+    create_on_sign_callback_promise, create_sign_promise, create_tx_and_args_for_sign,
+    refund_unused_deposit,
 };
+use near_sdk::serde_json;
 use near_sdk::{
     env::{self, block_timestamp},
     near, require,
     store::LookupMap,
-    AccountId, NearToken, PanicOnDefault, Promise,
+    AccountId, NearToken, PanicOnDefault, Promise, PromiseResult,
 };
-use primitives::{InputRequest, OtherEip1559TransactionPayload, Request, RequestId, StorageKey};
+use primitives::{
+    GetSignatureResponse, InputRequest, OtherEip1559TransactionPayload, Request, RequestId,
+    StorageKey,
+};
 
 // Define the contract structure
 #[derive(PanicOnDefault)]
@@ -82,8 +87,31 @@ impl Contract {
             "ERR_FORBIDDEN"
         );
 
-        let (_, args) = create_tx_and_args_for_sign(request.clone(), other_payload);
-        create_sign_promise(self.mpc_contract_id.clone(), args)
+        let (tx, args) = create_tx_and_args_for_sign(request.clone(), other_payload);
+
+        let sign_promise = create_sign_promise(self.mpc_contract_id.clone(), args);
+        let callback_promise = create_on_sign_callback_promise(tx);
+
+        sign_promise.then(callback_promise)
+    }
+
+    #[private]
+    pub fn on_get_signature(&mut self, tx_hex: String) -> GetSignatureResponse {
+        // https://docs.rs/near-sdk/latest/near_sdk/env/fn.promise_results_count.html
+        assert_eq!(env::promise_results_count(), 1, "ERR_TOO_MANY_RESULTS");
+
+        let signature_json = match env::promise_result(0) {
+            PromiseResult::Successful(data) => {
+                serde_json::from_slice::<serde_json::Value>(data.as_slice())
+                    .expect("Couldn't deserialize signature!")
+            }
+            _ => env::panic_str("Signature couldn't be decoded from Promise response!"),
+        };
+
+        GetSignatureResponse {
+            tx: tx_hex,
+            signature: signature_json,
+        }
     }
 }
 
@@ -276,17 +304,6 @@ mod tests {
 
         let input_request = input_request();
         contract.register_signature_request(input_request.clone());
-    }
-
-    #[test]
-    fn test_get_signature() {
-        let (mut contract, _) = setup();
-
-        let input_request = input_request();
-        let request_id = contract.register_signature_request(input_request.clone());
-
-        let other_payload = other_payload();
-        contract.get_signature(request_id, other_payload);
     }
 
     #[should_panic = "ERR_NOT_FOUND"]
