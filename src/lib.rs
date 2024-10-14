@@ -5,8 +5,7 @@ mod primitives;
 use constants::{MIN_GAS_FOR_GET_SIGNATURE, ONE_MINUTE_NANOS};
 use helpers::{
     assert_deposit, assert_gas, calculate_deposit_for_used_storage, create_derivation_path,
-    create_on_sign_callback_promise, create_sign_promise, create_tx_and_args_for_sign,
-    refund_unused_deposit,
+    create_eip1559_tx, create_on_sign_callback_promise, create_sign_promise, refund_unused_deposit,
 };
 use near_sdk::serde_json;
 use near_sdk::{
@@ -95,9 +94,10 @@ impl Contract {
             "ERR_FORBIDDEN"
         );
 
-        let (tx, args) = create_tx_and_args_for_sign(request.clone(), other_payload);
+        let tx = create_eip1559_tx(request.payload.clone(), other_payload);
 
-        let sign_promise = create_sign_promise(self.mpc_contract_id.clone(), args);
+        let sign_promise =
+            create_sign_promise(self.mpc_contract_id.clone(), tx.clone(), request.clone());
         let callback_promise = create_on_sign_callback_promise(tx);
 
         sign_promise.then(callback_promise)

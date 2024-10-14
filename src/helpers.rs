@@ -40,7 +40,7 @@ pub fn calculate_deposit_for_used_storage(used_storage: StorageUsage) -> NearTok
         .expect("ERR_STORAGE_DEPOSIT_CALC")
 }
 
-fn create_eip1559_tx(
+pub fn create_eip1559_tx(
     base_payload: BaseEip1559TransactionPayload,
     other_payload: OtherEip1559TransactionPayload,
 ) -> Eip1559TransactionRequest {
@@ -77,11 +77,11 @@ fn build_tx_payload(tx: Eip1559TransactionRequest) -> [u8; 32] {
     keccak256(vec)
 }
 
-pub fn create_tx_and_args_for_sign(
+pub fn create_sign_promise(
+    account_id: AccountId,
+    tx: Eip1559TransactionRequest,
     request: Request,
-    other_payload: OtherEip1559TransactionPayload,
-) -> (Eip1559TransactionRequest, Vec<u8>) {
-    let tx = create_eip1559_tx(request.payload.clone(), other_payload);
+) -> Promise {
     let payload = build_tx_payload(tx.clone());
 
     let args = json!({
@@ -94,10 +94,6 @@ pub fn create_tx_and_args_for_sign(
     .to_string()
     .into_bytes();
 
-    (tx, args)
-}
-
-pub fn create_sign_promise(account_id: AccountId, args: Vec<u8>) -> Promise {
     let function = "sign".to_owned();
     let deposit = env::attached_deposit();
     // calculate unused gas
