@@ -158,6 +158,15 @@ impl From<OtherEip1559TransactionPayload> for Eip1559TransactionRequest {
 }
 
 #[near_sdk::near(serializers = [json])]
+pub struct RegisterSignatureReqResponse {
+    pub request_id: RequestId,
+    // Nanoseconds
+    pub deadline: Timestamp,
+    pub derivation_path: String,
+    pub mpc_account_id: AccountId,
+}
+
+#[near_sdk::near(serializers = [json])]
 pub struct GetSignatureResponse {
     pub tx: String,
     pub signature: near_sdk::serde_json::Value,

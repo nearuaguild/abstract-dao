@@ -16,8 +16,8 @@ use near_sdk::{
     AccountId, NearToken, PanicOnDefault, Promise, PromiseResult,
 };
 use primitives::{
-    GetSignatureResponse, InputRequest, OtherEip1559TransactionPayload, Request, RequestId,
-    StorageKey,
+    GetSignatureResponse, InputRequest, OtherEip1559TransactionPayload,
+    RegisterSignatureReqResponse, Request, RequestId, StorageKey,
 };
 
 // Define the contract structure
@@ -49,9 +49,12 @@ impl Contract {
     }
 
     #[payable]
-    pub fn register_signature_request(&mut self, request: InputRequest) -> RequestId {
+    pub fn register_signature_request(
+        &mut self,
+        request: InputRequest,
+    ) -> RegisterSignatureReqResponse {
         let storage_used_before = env::storage_usage();
-        let new_request_id = self.add_request(request);
+        let new_request = self.add_request(request);
         let storage_used_after = env::storage_usage();
 
         let used_storage = storage_used_after
@@ -63,7 +66,12 @@ impl Contract {
         assert_deposit(storage_deposit);
         refund_unused_deposit(storage_deposit);
 
-        new_request_id
+        RegisterSignatureReqResponse {
+            request_id: new_request.id,
+            deadline: new_request.deadline,
+            derivation_path: new_request.derivation_path,
+            mpc_account_id: self.mpc_contract_id.clone(),
+        }
     }
 
     #[payable]
@@ -117,7 +125,7 @@ impl Contract {
 
 /// Internal helpers API
 impl Contract {
-    fn add_request(&mut self, input_request: InputRequest) -> RequestId {
+    fn add_request(&mut self, input_request: InputRequest) -> Request {
         let current_request_id = self.next_request_id;
         self.next_request_id += 1;
 
@@ -129,12 +137,13 @@ impl Contract {
             key_version: input_request.key_version.unwrap_or(0),
             deadline: block_timestamp() + 24 * 60 * ONE_MINUTE_NANOS, // in one day
         };
-        self.requests.insert(internal_request.id, internal_request);
+        self.requests
+            .insert(internal_request.id, internal_request.clone());
         // this is required as LookupMap doesn't write state immediately
         // Bug4 -> https://docs.near.org/build/smart-contracts/anatomy/collections#error-prone-patterns
         self.requests.flush();
 
-        current_request_id
+        internal_request
     }
 
     fn get_request_or_panic(&self, request_id: RequestId) -> &Request {
@@ -228,10 +237,10 @@ mod tests {
         let (mut contract, _) = setup();
 
         let input_request = input_request();
-        let request_id_1 = contract.register_signature_request(input_request.clone());
-        let request_id_2 = contract.register_signature_request(input_request.clone());
+        let request_1 = contract.register_signature_request(input_request.clone());
+        let request_2 = contract.register_signature_request(input_request.clone());
 
-        assert_ne!(request_id_1, request_id_2);
+        assert_ne!(request_1.request_id, request_2.request_id);
     }
 
     #[test]
@@ -321,13 +330,13 @@ mod tests {
         let (mut contract, mut context) = setup();
 
         let input_request = input_request();
-        let request_id = contract.register_signature_request(input_request.clone());
+        let request = contract.register_signature_request(input_request.clone());
 
         context.predecessor_account_id(user2());
         testing_env!(context.build());
 
         let other_payload = other_payload();
-        contract.get_signature(request_id, other_payload);
+        contract.get_signature(request.request_id, other_payload);
     }
 
     #[should_panic = "ERR_TIME_IS_UP"]
@@ -336,14 +345,14 @@ mod tests {
         let (mut contract, mut context) = setup();
 
         let input_request = input_request();
-        let request_id = contract.register_signature_request(input_request.clone());
+        let request = contract.register_signature_request(input_request.clone());
 
         // one day + a second
         context.block_timestamp(24 * 60 * ONE_MINUTE_NANOS + 1);
         testing_env!(context.build());
 
         let other_payload = other_payload();
-        contract.get_signature(request_id, other_payload);
+        contract.get_signature(request.request_id, other_payload);
     }
 
     #[should_panic = "ERR_INSUFFICIENT_GAS"]
@@ -352,13 +361,13 @@ mod tests {
         let (mut contract, mut context) = setup();
 
         let input_request = input_request();
-        let request_id = contract.register_signature_request(input_request.clone());
+        let request = contract.register_signature_request(input_request.clone());
 
         // 260TGas - 1Gas
         context.prepaid_gas(Gas::from_tgas(260).checked_sub(Gas::from_gas(1)).unwrap());
         testing_env!(context.build());
 
         let other_payload = other_payload();
-        contract.get_signature(request_id, other_payload);
+        contract.get_signature(request.request_id, other_payload);
     }
 }

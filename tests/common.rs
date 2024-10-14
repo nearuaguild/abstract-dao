@@ -1,4 +1,4 @@
-use near_sdk::serde_json::json;
+use near_sdk::serde_json::{json, Value};
 use near_workspaces::types::{AccountId, NearToken};
 use near_workspaces::{Account, Contract};
 
@@ -172,7 +172,9 @@ pub async fn create_signature_request(user: &Account, contract_id: &AccountId) -
         "Function call register_signature_request wasn't successful!"
     );
 
-    register_request_result.json::<u64>().unwrap()
+    register_request_result.json::<Value>().unwrap()["request_id"]
+        .as_u64()
+        .unwrap()
 }
 
 pub async fn get_signature_and_validate(
