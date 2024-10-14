@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.1](https://github.com/nearuaguild/abstract-dao/compare/v0.6.0...v0.6.1) (2024-10-14)
+
+
+### Documentation
+
+* include response examples of two primary contract functions ([0711f1c](https://github.com/nearuaguild/abstract-dao/commit/0711f1c462d75d094381c862455a91f3fd31e75e))
+
+
+### Bug Fixes
+
+* include `allowed_account_id` in response of `register_signature_request` ([3c453e6](https://github.com/nearuaguild/abstract-dao/commit/3c453e652c085745e6a429ad901829b4a9f1b449))
+
 ## [0.6.0](https://github.com/nearuaguild/abstract-dao/compare/v0.5.0...v0.6.0) (2024-10-14)
 
 
