@@ -56,7 +56,7 @@ This is one of the main functions of the contract. It records user's intention t
 pub fn register_signature_request(&mut self, request: InputRequest) -> RequestId
 ```
 
-#### Example
+#### Request Example
 
 ```bash
 near contract call-function as-transaction abstract-dao.testnet register_signature_request json-args '{
@@ -95,6 +95,19 @@ near contract call-function as-transaction abstract-dao.testnet register_signatu
 - `<dao-account-id>` is the institution's account for which signature is generated
 - Integer arguments must be base64 encoded
 
+#### Response Example
+
+```json
+{
+  "deadline": 1728984746246497739,
+  "derivation_path": "denbite.testnet-0",
+  "mpc_account_id": "v1.signer-prod.testnet",
+  "request_id": 0
+}
+```
+
+- `deadline` is Unix timestamp in nanoseconds
+
 ### `get_signature()`
 
 This is one of the main functions of the contract. It validates predecessor's permissions, converts payload into EIP-1559 transaction, and transmits further to MPC Contract where the signature is created
@@ -103,7 +116,7 @@ This is one of the main functions of the contract. It validates predecessor's pe
 pub fn get_signature(&mut self, request_id: RequestId, other_payload: OtherEip1559TransactionPayload) -> Promise
 ```
 
-#### Example
+#### Request Example
 
 ```bash
 near contract call-function as-transaction abstract-dao.testnet get_signature json-args '{
@@ -120,8 +133,29 @@ near contract call-function as-transaction abstract-dao.testnet get_signature js
 - `<eligible-account-id>` must have permission to run `get_signature()`, otherwise it will throw forbidden error
 - Prepaid gas must be bigger than 250TGas
 
+#### Response Example
+
+```json
+{
+  "signature": {
+    "big_r": {
+      "affine_point": "02D532992B0ECBF67800DB14E04530D9BA55609AD31213CC7ABDB554E8FDA986D3"
+    },
+    "recovery_id": 1,
+    "s": {
+      "scalar": "40E81711B8174712B9F34B2540EE0F642802387D15543CBFC84211BB04B83AC3"
+    }
+  },
+  "tx": "0x02f85083aa36a702850485034c878517a4eb0789829dd094e2a01146fffc8432497ae49a7a6cba5b9abd71a380a460fe47b1000000000000000000000000000000000000000000000000000000000000a84bc0"
+}
+```
+
+- `tx` is hex-encoded payload of EIP-1559 transaction
+- `signature` is derived by [MPC Contract](https://github.com/near/mpc/tree/develop/chain-signatures/contract) (see this [repository](https://github.com/nearuaguild/multichain-dao-scripts) to understand how it can be easily relayed to the EVM chain)
+
 ## Useful Links
 
+- [multichain-dao-scripts](https://github.com/nearuaguild/multichain-dao-scripts) - The script to relay signed EIP-1559 transaction directly to EVM chain
 - [cargo-near](https://github.com/near/cargo-near) - NEAR smart contract development toolkit for Rust
 - [near CLI](https://near.cli.rs) - Iteract with NEAR blockchain from command line
 - [NEAR Rust SDK Documentation](https://docs.near.org/sdk/rust/introduction)
