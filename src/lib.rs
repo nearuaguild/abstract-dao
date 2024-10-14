@@ -338,7 +338,8 @@ mod tests {
         let input_request = input_request();
         let request_id = contract.register_signature_request(input_request.clone());
 
-        context.block_timestamp(15 * ONE_MINUTE_NANOS + 1);
+        // one day + a second
+        context.block_timestamp(24 * 60 * ONE_MINUTE_NANOS + 1);
         testing_env!(context.build());
 
         let other_payload = other_payload();
