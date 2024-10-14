@@ -3365,7 +3365,7 @@ dependencies = [
 
 [[package]]
 name = "near_abstract_dao"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "ethers-contract",
  "ethers-core",
