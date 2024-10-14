@@ -245,4 +245,17 @@ pub async fn get_signature_and_validate(
         get_signature_result.is_success(),
         "Get signature wasn't successful!"
     );
+
+    let response = get_signature_result.json::<Value>().unwrap();
+
+    assert!(response["tx"].is_string());
+    assert_eq!(
+        response["signature"]["big_r"]["affine_point"],
+        "03214BB5B327CEC619FB0447C84E23E5DF462FD758D46F0A21A36EF9BC083EF53B"
+    );
+    assert_eq!(response["signature"]["recovery_id"], 0);
+    assert_eq!(
+        response["signature"]["s"]["scalar"],
+        "314BA3D6CC3B41C255C857C1216FFCC9AE71A17C0B38146613D4C6EFE5416FC7"
+    );
 }
