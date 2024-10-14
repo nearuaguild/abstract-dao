@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.0](https://github.com/nearuaguild/abstract-dao/compare/v0.5.0...v0.6.0) (2024-10-14)
+
+
+### Features
+
+* bring return type for `get_signature` function ([135684c](https://github.com/nearuaguild/abstract-dao/commit/135684c3203ab7ced449e53b9defd740ae0f59c8))
+* bring return type for `register_signature_request` function ([d632a33](https://github.com/nearuaguild/abstract-dao/commit/d632a3394276a49b0e4575e88789e49d83869734))
+
+
+### Bug Fixes
+
+* increase deadline to one day instead of 15 minutes ([bc82b4b](https://github.com/nearuaguild/abstract-dao/commit/bc82b4bb11bcde9f498fd08d74c90e69ec9c3138))
+
 ## [0.5.0](https://github.com/nearuaguild/abstract-dao/compare/v0.4.0...v0.5.0) (2024-10-07)
 
 
