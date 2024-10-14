@@ -99,10 +99,11 @@ near contract call-function as-transaction abstract-dao.testnet register_signatu
 
 ```json
 {
-  "deadline": 1728984746246497739,
+  "allowed_account_id": "denbite.testnet",
+  "deadline": 1728986555728267025,
   "derivation_path": "denbite.testnet-0",
   "mpc_account_id": "v1.signer-prod.testnet",
-  "request_id": 0
+  "request_id": 1
 }
 ```
 
