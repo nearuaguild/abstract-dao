@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use near_sdk::serde_json::{json, Value};
 use near_workspaces::types::{AccountId, NearToken};
 use near_workspaces::{Account, Contract};
@@ -23,9 +25,21 @@ fn get_mpc_request_scalars_for_chain(chain_id: u64) -> (&'static str, &'static s
 }
 
 pub async fn deploy_abstract_dao_contract(root: &Account, mpc_contract_id: &AccountId) -> Contract {
-    let wasm = near_workspaces::compile_project(".")
-        .await
-        .expect("Failed to compile contract WASM!");
+    let wasm = {
+        let artifact = cargo_near_build::build(cargo_near_build::BuildOpts {
+            manifest_path: Some(
+                cargo_near_build::camino::Utf8PathBuf::from_str("./Cargo.toml").expect("camino PathBuf from str"),
+            ),
+            no_abi: true,
+            ..Default::default()
+        })
+        .expect(&format!("building `{}` contract for tests", "near_abstract_dao"));
+
+        let contract_wasm = std::fs::read(&artifact.path)
+            .map_err(|err| format!("accessing {} to read wasm contents: {}", &artifact.path, err))
+            .expect("std::fs::read");
+        contract_wasm
+    };
 
     let account = root
         .create_subaccount("contract")
